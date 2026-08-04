@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from ask.conversation import Conversation, Message
 from ask.model import Proposal
 from ask.tools import ToolDefinition

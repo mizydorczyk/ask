@@ -1,23 +1,17 @@
-from __future__ import annotations
-
 import argparse
+import os
 import sys
-from importlib.resources import files
 
 from ask.app import App
 from ask.errors import AskError
+from ask.terminal.progress import Progress
 from ask.terminal.review import present
 from ask.terminal.transcript import Session
-
-
-def intercept_script() -> str:
-    return files("ask").joinpath("intercept.zsh").read_text()
 
 
 def parser() -> argparse.ArgumentParser:
     root = argparse.ArgumentParser(prog="ask")
     commands = root.add_subparsers(dest="command", required=True)
-    commands.add_parser("initialize")
     request = commands.add_parser("request")
     request.add_argument("--previous-command", required=True)
     request.add_argument("--current-command", required=True)
@@ -35,16 +29,26 @@ def main() -> int:
     args = parser().parse_args()
 
     try:
-        if args.command == "initialize":
-            print(intercept_script(), end="")
-            return 0
-
         session = Session(
-            args.previous_command, args.current_command, args.cwd, args.tty,
-            args.previous_status, args.history_entry,
+            args.previous_command,
+            args.current_command,
+            args.cwd,
+            args.tty,
+            args.previous_status,
+            args.history_entry,
         )
-        request = " ".join(args.request[1:] if args.request[:1] == ["--"] else args.request)
-        proposal = App().request(session, request)
+        request = " ".join(
+            args.request[1:] if args.request[:1] == ["--"] else args.request
+        )
+        app = App()
+        progress = Progress(session.tty)
+        try:
+            proposal = app.request(session, request, progress.start)
+        finally:
+            progress.stop()
+
+        if os.environ.get("ASK_DEBUG") == "1" and app.last_metrics:
+            _write_metrics(session.tty, app.last_metrics)
 
         if proposal.kind == "done":
             with open(session.tty, "wb", buffering=0) as tty:
@@ -60,3 +64,23 @@ def main() -> int:
         print(f"ask: {error}", file=sys.stderr)
 
         return 1
+
+
+def _write_metrics(tty_path: str, metrics) -> None:
+    usage = metrics.usage
+    tokens = ""
+
+    if usage:
+        tokens = (
+            f"  input {usage.input_tokens}  output {usage.output_tokens}"
+            f"  cached {usage.cached_tokens}  cache writes {usage.cache_write_tokens}"
+        )
+
+    text = (
+        f"\x1b[38;5;245mask: context {metrics.context_seconds:.2f}s"
+        f"  model {metrics.model_seconds:.2f}s  total {metrics.total_seconds:.2f}s"
+        f"{tokens}\x1b[0m\n"
+    )
+
+    with open(tty_path, "wb", buffering=0) as tty:
+        tty.write(text.encode())

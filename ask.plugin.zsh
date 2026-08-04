@@ -1,6 +1,8 @@
 # `?` is a one-character glob in Zsh, so disable globbing before dispatching.
 autoload -Uz add-zsh-hook
 typeset -ga _ASK_SESSION_HISTORY=()
+typeset -g _ASK_PENDING_REQUEST=""
+typeset -g _ASK_PENDING_STATUS=0
 
 _ask_record_command() {
   _ASK_SESSION_HISTORY+=("$1")
@@ -12,11 +14,25 @@ _ask_record_command() {
 (( ${preexec_functions[(Ie)_ask_record_command]} )) || \
   add-zsh-hook preexec _ask_record_command
 
+_ask_dispatch_pending() {
+  [[ -n $_ASK_PENDING_REQUEST ]] || return
+
+  local request=$_ASK_PENDING_REQUEST
+  local previous_status=$_ASK_PENDING_STATUS
+  _ASK_PENDING_REQUEST=""
+  print -s -- "? $request"
+  _ask_record_command "? $request"
+  _ask_request "$previous_status" "$request"
+}
+
+(( ${precmd_functions[(Ie)_ask_dispatch_pending]} )) || \
+  add-zsh-hook precmd _ask_dispatch_pending
+
 ask() {
   local previous_status=$?
 
   case ${1-} in
-    (initialize | request | -*)
+    (request | -*)
       command ask "$@"
       ;;
     (*)
@@ -26,6 +42,54 @@ ask() {
 }
 
 alias '?'='noglob ask'
+
+# Clean up the raw-input keymap used by earlier versions. Shell startup files
+# are commonly re-sourced, so removing the old binding here prevents a stale
+# widget from taking over `?` before the normal line editor can insert it.
+if (( $+widgets[_ask_start] )); then
+  bindkey -M emacs '?' self-insert
+  bindkey -M viins '?' self-insert
+  zle -D _ask_start
+fi
+if (( $+widgets[_ask_submit] )); then
+  zle -D _ask_submit
+fi
+
+# A question can contain shell syntax (notably apostrophes). Capture it before
+# the shell parser sees it, then dispatch it from precmd after ZLE exits. This
+# preserves the exact line the user typed and keeps terminal output/review UI
+# outside the line editor.
+_ask_accept_line() {
+  if [[ $BUFFER == \?* && $BUFFER != "?" ]]; then
+    local previous_status=$?
+    local request=${BUFFER#\?}
+    request=${request# }
+    if [[ -n $request ]]; then
+      _ASK_PENDING_REQUEST=$request
+      _ASK_PENDING_STATUS=$previous_status
+      zle .send-break
+      return
+    fi
+  fi
+
+  if (( $+functions[_ask_original_accept_line] )); then
+    zle _ask_original_accept_line -- "$@"
+  else
+    zle .accept-line
+  fi
+}
+
+# Wrap the current accept-line widget instead of replacing its key bindings.
+# Plugins such as zsh-autosuggestions wrap this widget themselves; saving and
+# calling the current version keeps their Enter-key behavior intact.
+if (( ! $+functions[_ask_original_accept_line] )); then
+  case $widgets[accept-line] in
+    (user:*) zle -N _ask_original_accept_line "${widgets[accept-line]#user:}"
+      ;;
+    (*) ;;
+  esac
+fi
+zle -N accept-line _ask_accept_line
 
 _ask_with_context() {
   local previous_status=$1

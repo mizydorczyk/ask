@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import secrets
 import subprocess
 import sys
@@ -128,9 +126,7 @@ def entries(session: Session, text: str) -> list[tuple[str, str, int | None]]:
     ]
 
 
-def reviewed_execution(
-    output: str, previous_command: str
-) -> tuple[str, str, str] | None:
+def reviewed_proposal(output: str) -> tuple[str, str, str] | None:
     controls = output.find(REVIEW_CONTROLS)
     if controls < 0 or output.rfind("\n", 0, controls) + 1 != controls:
         return None
@@ -144,9 +140,6 @@ def reviewed_execution(
     command = output[command_start:controls].removesuffix("\n")
 
     terminal_output = output[controls + len(REVIEW_CONTROLS) :].removeprefix("\n")
-    if not terminal_output and command.rstrip(" \t") != previous_command.rstrip(" \t"):
-        return None
-
     return output[:proposal].rstrip("\n"), command, terminal_output
 
 
@@ -160,13 +153,30 @@ def conversation(session: Session, request: str, text: str) -> Conversation:
 
             result.user(command[1:].lstrip())
 
-            reviewed = reviewed_execution(output, session.previous_command)
+            reviewed = reviewed_proposal(output)
             if reviewed:
                 comment, reviewed_command, reviewed_output = reviewed
-                result.assistant(comment)
-                result.shell(
-                    sequence, reviewed_command, session.cwd, reviewed_output, status
+                was_executed = (
+                    bool(reviewed_output)
+                    or reviewed_command.rstrip(" \t")
+                    == session.previous_command.rstrip(" \t")
                 )
+                if was_executed:
+                    result.assistant(comment)
+                    result.shell(
+                        sequence,
+                        reviewed_command,
+                        session.cwd,
+                        reviewed_output,
+                        status,
+                    )
+                else:
+                    result.assistant(
+                        f"{comment}\n\nThe user canceled the proposed command: "
+                        f"{reviewed_command}\n"
+                        "Treat a later constraint as a request to revise this "
+                        "proposal; do not assume it was executed."
+                    )
             else:
                 result.assistant(output)
         else:

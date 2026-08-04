@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>macOS Terminal Mockup</title>
+<style>
+  :root{
+    --canvas:#0d1117;
+    --window:#202633;
+    --titlebar:#1b1f2a;
+    --border:rgba(255,255,255,.18);
+    --text:#f2f4f8;
+    --muted:#969dab;
+    --green:#68d391;
+    --amber:#d6b45f;
+    --red:#ff5f57;
+    --yellow:#febc2e;
+    --traffic-green:#28c840;
+  }
+
+  *{box-sizing:border-box}
+
+  html,body{height:100%}
+
+  body{
+    margin:0;
+    display:grid;
+    place-items:start center;
+    padding:10px;
+    background:transparent;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  }
+
+  .terminal{
+    width:min(1500px,100%);
+    overflow:hidden;
+    border:1px solid var(--border);
+    border-radius:22px;
+    background:var(--window);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.05);
+  }
+
+  .titlebar{
+    height:54px;
+    position:relative;
+    display:flex;
+    align-items:center;
+    padding:0 20px;
+    background:var(--titlebar);
+    border-bottom:1px solid rgba(255,255,255,.035);
+  }
+
+  .traffic{
+    display:flex;
+    gap:14px;
+    z-index:1;
+  }
+
+  .traffic span{
+    width:20px;
+    height:20px;
+    border-radius:50%;
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,.12);
+  }
+
+  .traffic .r{background:var(--red)}
+  .traffic .y{background:var(--yellow)}
+  .traffic .g{background:var(--traffic-green)}
+
+  .title{
+    position:absolute;
+    inset:0;
+    display:grid;
+    place-items:center;
+    color:#999fad;
+    font-size:15px;
+    font-weight:650;
+    letter-spacing:-.01em;
+    pointer-events:none;
+  }
+
+  .folder{
+    display:inline-block;
+    margin-right:7px;
+    filter:saturate(.9);
+  }
+
+  pre{
+    margin:0;
+    min-height:490px;
+    padding:20px 18px 26px;
+    overflow:auto;
+    color:var(--text);
+    font:500 clamp(13px,1.35vw,20px)/1.43 "SFMono-Regular","SF Mono",Menlo,Monaco,Consolas,monospace;
+    letter-spacing:.005em;
+    white-space:pre;
+    tab-size:4;
+  }
+
+  .muted{color:var(--muted)}
+  .green{color:var(--green)}
+  .amber{color:var(--amber)}
+  .redtext{color:#f47b73}
+
+  .cursor{
+    display:inline-block;
+    width:.58em;
+    height:1.08em;
+    margin-left:.12em;
+    vertical-align:-.17em;
+    background:#a6acb8;
+    animation:blink 1.08s steps(1) infinite;
+  }
+
+  @keyframes blink{50%{opacity:0}}
+
+  @media (max-width:760px){
+    body{padding:12px}
+    .terminal{border-radius:15px}
+    .title{font-size:12px}
+    pre{min-height:430px;padding:16px 14px 20px}
+  }
+</style>
+</head>
+<body>
+  <section class="terminal" aria-label="macOS Terminal mockup">
+    <header class="titlebar">
+      <div class="traffic" aria-hidden="true">
+        <span class="r"></span><span class="y"></span><span class="g"></span>
+      </div>
+</header>
+
+<pre>user@mac ~ % cd Development
+user@mac Development % ? show five largest files in that directory
+Review this command.
+<span class="muted">&gt; find . -type f -exec du -h {} + | sort -hr | head -n 5</span>
+<span class="green">enter</span> run  <span class="amber">tab</span> edit  <span class="redtext">esc</span> cancel
+237M    ./project-alpha/.venv/lib/python3.12/site-packages/library/lib/core_cpu.dylib
+178M    ./project-beta/.venv/lib/python3.13/site-packages/library/lib/core_cpu.dylib
+159M    ./project-gamma/.git/objects/pack/pack-0123456789abcdef0123456789abcdef01234567.pack
+134M    ./project-delta/assets/data/sample-market-1m.csv
+111M    ./project-epsilon/target/release/deps/library-0123456789abcdef.rlib
+user@mac Development % <span class="cursor"></span></pre>
+  </section>
+
+
+</body></html>

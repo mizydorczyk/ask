@@ -1,46 +1,47 @@
-# ask — ask the Zsh shell
+# ask — the Zsh shell and Terminal.app assistant
 
 Turn natural language into shell commands.
 
-```zsh
-? create a Rust project in the parent directory
-? explain the previous command
-? fix this git error
-```
+<p align="center">
+    <img src="docs/example.png" alt="Example of ask proposing and running a command" />
+</p>
 
 Type `?` followed by your request. `ask` understands your terminal context and turns your intent into shell commands you can review before running.
 
+`ask` uses OpenAI's Responses API and sends relevant Terminal.app scrollback as context. Commands are always proposals: choose `run`, `edit`, or `cancel`. Explanations are returned as plain text.
+
 ## Install
 
-From this repository:
+Set your API key:
 
 ```sh
-uv tool install .
+export OPENAI_API_KEY="..."
 ```
 
-This installs the `ask` executable. `uv` is not needed after installation.
+Optionally override the model settings:
 
-Enable the Zsh integration in the current shell:
+```sh
+export ASK_MODEL="gpt-5.6-luna"
+export ASK_REASONING_EFFORT="low"
+export ASK_VERBOSITY="low"
+export ASK_MAX_OUTPUT_TOKENS="512"
+```
+
+Install the CLI and Oh My Zsh plugin:
+
+```sh
+uv tool install git+https://github.com/mizydorczyk/ask.git
+git clone https://github.com/mizydorczyk/ask.git "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/ask"
+```
+
+Add the plugin in `~/.zshrc` before Oh My Zsh is sourced:
 
 ```zsh
-eval "$(ask initialize)"
+plugins=(git ask)
 ```
 
-To enable it for new shells, add that line to `~/.zshrc` after your `PATH`
-setup.
+Make sure `command -v ask` succeeds before Oh My Zsh loads, then start a new
+shell. Other plugin managers can source `ask.plugin.zsh` directly.
 
 The first request may cause macOS to ask for permission to automate
-Terminal.app. Allow it so `ask` can read scrollback for the invoking terminal
-tab.
-
-See `docs/examples.md` for examples.
-
-## Development
-
-```sh
-uv tool install --editable .
-uv run python -m unittest discover -s tests -v
-```
-
-An editable installation runs directly from this working directory, so source
-changes take effect without reinstalling.
+Terminal.app. Allow it so `ask` can read the current tab's scrollback.
