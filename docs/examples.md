@@ -8,10 +8,6 @@
 ? compress this folder into a tar.gz archive
 ```
 
-`ask` displays its proposed command with controls to run it, place it in the
-prompt for editing, or cancel it. The command is not executed until you choose
-**run**.
-
 ### Fix commands
 
 ```zsh
