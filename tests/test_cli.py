@@ -30,7 +30,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(_events([_encode_event(event)]), [event])
 
     @patch("ask.cli.output_after_review", return_value="Created package.")
-    def test_event_captures_reviewed_command_output_when_a_tty_is_available(self, _):
+    def test_event_captures_reviewed_command_output(self, _):
         output = StringIO()
         with (
             patch.object(
@@ -47,8 +47,6 @@ class CliTests(unittest.TestCase):
                     "/work",
                     "--exit-status",
                     "0",
-                    "--tty",
-                    "/dev/ttys001",
                 ],
             ),
             redirect_stdout(output),
@@ -79,27 +77,23 @@ class CliTests(unittest.TestCase):
                     "/work",
                     "--exit-status",
                     "0",
-                    "--tty",
-                    "/dev/ttys001",
                 ],
             ),
             redirect_stdout(output),
         ):
             self.assertEqual(main(), 0)
 
-        capture.assert_called_once_with("/dev/ttys001", "cargo new browser9000")
+        capture.assert_called_once_with("cargo new browser9000")
         self.assertEqual(
             _events([output.getvalue()])[0]["command"], "cargo new browser8000"
         )
 
-    @patch("ask.cli.sleep")
     @patch("ask.cli.output_after_review", return_value="Created package.")
-    def test_event_output_uses_one_delayed_scrollback_capture(self, _, sleep):
+    def test_event_output_captures_scrollback_immediately(self, _):
         self.assertEqual(
-            _captured_output("/dev/ttys001", "cargo new demo", "cargo new demo"),
+            _captured_output("cargo new demo", "cargo new demo"),
             "Created package.",
         )
-        sleep.assert_called_once_with(0.1)
 
     @patch(
         "ask.cli.output_after_review",
@@ -110,7 +104,7 @@ class CliTests(unittest.TestCase):
     ):
         self.assertEqual(
             _captured_output(
-                "/dev/ttys001", "cargo new browser9000", "cargo new browser8000"
+                "cargo new browser9000", "cargo new browser8000"
             ),
             "Created package.",
         )
@@ -134,8 +128,6 @@ class CliTests(unittest.TestCase):
                 "/dev/tty",
                 "--previous-status",
                 "0",
-                "--terminal-program",
-                "Terminal",
                 "--output",
                 "dataset/",
                 "list files",
@@ -145,22 +137,20 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.command, "snapshot")
         self.assertEqual(args.request, ["list files"])
 
-    def test_snapshot_writes_a_new_terminal_named_json_file(self):
+    def test_snapshot_writes_a_new_tmux_named_json_file(self):
         with tempfile.TemporaryDirectory() as directory:
-            path = _write_snapshot(directory + "/", "Terminal.app", {"input": []})
+            path = _write_snapshot(directory + "/", {"input": []})
 
             self.assertEqual(path.parent, Path(directory))
-            self.assertRegex(path.name, r"^Terminal\.app-[0-9a-f-]{36}\.json$")
+            self.assertRegex(path.name, r"^tmux-[0-9a-f-]{36}\.json$")
             self.assertEqual(json.loads(path.read_text()), {"input": []})
 
     def test_file_like_snapshot_target_uses_its_parent_directory(self):
         with tempfile.TemporaryDirectory() as directory:
-            path = _write_snapshot(
-                str(Path(directory) / "example.json"), "", {"input": []}
-            )
+            path = _write_snapshot(str(Path(directory) / "example.json"), {"input": []})
 
             self.assertEqual(path.parent, Path(directory))
-            self.assertRegex(path.name, r"^terminal-[0-9a-f-]{36}\.json$")
+            self.assertRegex(path.name, r"^tmux-[0-9a-f-]{36}\.json$")
 
     def test_snapshot_command_writes_context_without_a_model_request(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -180,8 +170,6 @@ class CliTests(unittest.TestCase):
                 "/dev/tty",
                 "--previous-status",
                 "0",
-                "--terminal-program",
-                "Terminal",
                 "--output",
                 directory + "/",
                 "list files",

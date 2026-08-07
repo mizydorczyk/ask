@@ -1,1 +1,1 @@
-"""Adapters for Terminal.app scrollback and the invoking TTY."""
+"""Adapters for tmux scrollback and the invoking TTY."""

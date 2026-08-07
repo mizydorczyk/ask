@@ -1,4 +1,4 @@
-# ask — the Zsh shell and Terminal.app assistant
+# ask — the Zsh shell and tmux assistant
 
 Turn natural language into shell commands.
 
@@ -8,7 +8,7 @@ Turn natural language into shell commands.
 
 Type `?` followed by your request. `ask` understands your terminal context and turns your intent into shell commands you can review before running.
 
-`ask` uses OpenAI's Responses API and sends relevant Terminal.app scrollback as context. Commands are always proposals: choose `run`, `edit`, or `cancel`. Explanations are returned as plain text.
+`ask` uses OpenAI's Responses API and sends relevant scrollback from the current tmux pane as context. Commands are always proposals: choose `run`, `edit`, or `cancel`. Explanations are returned as plain text.
 
 ## Install
 
@@ -41,7 +41,12 @@ plugins=(git ask)
 ```
 
 Make sure `command -v ask` succeeds before Oh My Zsh loads, then start a new
-shell. Other plugin managers can source `ask.plugin.zsh` directly.
+shell inside tmux. Other plugin managers can source `ask.plugin.zsh` directly.
 
-The first request may cause macOS to ask for permission to automate
-Terminal.app. Allow it so `ask` can read the current tab's scrollback.
+For example, start or attach to a session with:
+
+```sh
+tmux new -As ask
+```
+
+ask uses tmux's pane API to read the current pane's scrollback.

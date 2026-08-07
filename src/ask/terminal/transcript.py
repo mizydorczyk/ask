@@ -1,8 +1,6 @@
-import secrets
+import os
 import subprocess
-import sys
 from dataclasses import dataclass
-from pathlib import Path
 
 from ask.conversation import Conversation
 from ask.errors import AskError
@@ -19,53 +17,29 @@ class Session:
     tty: str
     exit_status: int
     history: list[str]
-    terminal_program: str = ""
     events: list[dict] | None = None
 
 
-def capture(tty: str) -> str:
-    if sys.platform != "darwin":
-        raise AskError("unsupported terminal platform")
+def capture() -> str:
+    """Return the complete scrollback for the tmux pane running this shell."""
+    pane = os.environ.get("TMUX_PANE")
+    if not pane:
+        raise AskError("ask must run inside a tmux pane")
 
-    marker = f"__ASK_TERMINAL_BOUNDARY_{secrets.token_hex(16)}__"
-    script = Path(__file__).with_name("capture.applescript").read_text()
-    result = subprocess.run(
-        ["/usr/bin/osascript", "-e", script, "--", tty, marker],
-        capture_output=True,
-        check=False,
-    )
+    try:
+        result = subprocess.run(
+            ["tmux", "capture-pane", "-p", "-J", "-S", "-", "-t", pane],
+            capture_output=True,
+            check=False,
+        )
+    except FileNotFoundError as error:
+        raise AskError("tmux is required; install tmux and start a tmux session") from error
 
     if result.returncode:
         detail = result.stderr.decode(errors="replace").strip()
+        raise AskError(f"tmux capture failed: {detail or 'no error details'}")
 
-        if "-1743" in detail:
-            raise AskError(
-                "Terminal.app Automation access was denied; allow access in System Settings"
-            )
-
-        if "-600" in detail:
-            raise AskError("Terminal.app is not running")
-
-        if "64" in detail:
-            raise AskError("no Terminal.app tab matches the invoking TTY")
-
-        raise AskError(f"Terminal.app capture failed: {detail or 'no error details'}")
-
-    text = result.stdout.decode()
-    if text.count(marker) != 1:
-        raise AskError("Terminal.app returned an invalid response")
-
-    before, after = text.rstrip("\n").split(marker)
-
-    return (
-        before
-        + (
-            ""
-            if not before or before.endswith("\n") or after.startswith("\n")
-            else "\n"
-        )
-        + after
-    )
+    return result.stdout.decode(errors="replace")
 
 
 def entries(session: Session, text: str) -> list[tuple[str, str, int | None]]:
@@ -74,12 +48,12 @@ def entries(session: Session, text: str) -> list[tuple[str, str, int | None]]:
     current_at = text.rfind(current)
 
     if current_at < 0:
-        raise AskError("cannot find the current request in Terminal.app scrollback")
+        raise AskError("cannot find the current request in tmux scrollback")
 
     line_start = text.rfind("\n", 0, current_at) + 1
     prompt = text[line_start:current_at]
     if not prompt:
-        raise AskError("cannot identify the current Terminal.app prompt")
+        raise AskError("cannot identify the current tmux prompt")
     prompt_suffix = prompt[-2:]
 
     boundary = line_start
@@ -146,17 +120,17 @@ def reviewed_proposal(output: str) -> tuple[str, str, str] | None:
     return output[:proposal].rstrip("\n"), command, terminal_output
 
 
-def output_after_review(tty: str, command: str) -> str:
+def output_after_review(command: str) -> str:
     """Return output rendered after the latest review of *command*.
 
     Capture is best-effort: event recording must not interfere with the live
-    shell command when Terminal.app automation is unavailable.
+    shell command when tmux scrollback is unavailable.
     """
-    text = capture(tty).replace("\r\n", "\n").replace("\r", "\n")
+    text = capture().replace("\r\n", "\n").replace("\r", "\n")
     marker = f"{REVIEW_PREFIX}{command}\n{REVIEW_CONTROLS}"
     position = text.rfind(marker)
     if position < 0:
-        raise AskError("cannot find the reviewed command in Terminal.app scrollback")
+        raise AskError("cannot find the reviewed command in tmux scrollback")
     return text[position + len(marker) :].removeprefix("\n").rstrip("\n")
 
 

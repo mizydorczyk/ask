@@ -1,11 +1,55 @@
+import os
+import subprocess
 import unittest
 from unittest.mock import patch
 
 from ask.conversation import Message, ToolCall, ToolResult
-from ask.terminal.transcript import Session, conversation, entries, output_after_review
+from ask.errors import AskError
+from ask.terminal.transcript import (
+    Session,
+    capture,
+    conversation,
+    entries,
+    output_after_review,
+)
 
 
 class TerminalHistoryTests(unittest.TestCase):
+    @patch("ask.terminal.transcript.subprocess.run")
+    @patch.dict(os.environ, {"TMUX_PANE": "%12"}, clear=True)
+    def test_capture_reads_the_current_tmux_pane(self, run):
+        run.return_value = subprocess.CompletedProcess(
+            [], 0, stdout=b"prompt % pwd\n/work\n", stderr=b""
+        )
+
+        self.assertEqual(capture(), "prompt % pwd\n/work\n")
+        run.assert_called_once_with(
+            ["tmux", "capture-pane", "-p", "-J", "-S", "-", "-t", "%12"],
+            capture_output=True,
+            check=False,
+        )
+
+    @patch.dict(os.environ, {}, clear=True)
+    def test_capture_requires_a_tmux_pane(self):
+        with self.assertRaisesRegex(AskError, "must run inside a tmux pane"):
+            capture()
+
+    @patch("ask.terminal.transcript.subprocess.run", side_effect=FileNotFoundError)
+    @patch.dict(os.environ, {"TMUX_PANE": "%12"}, clear=True)
+    def test_capture_explains_when_tmux_is_unavailable(self, _):
+        with self.assertRaisesRegex(AskError, "tmux is required"):
+            capture()
+
+    @patch("ask.terminal.transcript.subprocess.run")
+    @patch.dict(os.environ, {"TMUX_PANE": "%12"}, clear=True)
+    def test_capture_reports_tmux_failures(self, run):
+        run.return_value = subprocess.CompletedProcess(
+            [], 1, stdout=b"", stderr=b"can't find pane: %12\n"
+        )
+
+        with self.assertRaisesRegex(AskError, "tmux capture failed: can't find pane"):
+            capture()
+
     @patch("ask.terminal.transcript.capture")
     def test_output_after_review_uses_the_latest_matching_review(self, capture):
         capture.return_value = (
@@ -13,7 +57,7 @@ class TerminalHistoryTests(unittest.TestCase):
             "> cargo new demo\nenter run  tab edit  esc cancel\nCreated package.\n"
         )
 
-        self.assertEqual(output_after_review("/dev/tty", "cargo new demo"), "Created package.")
+        self.assertEqual(output_after_review("cargo new demo"), "Created package.")
     def test_entries_keeps_history_when_the_prompt_directory_changes(self):
         session = Session(
             "? Why it failed?",

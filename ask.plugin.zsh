@@ -12,7 +12,7 @@ typeset -g _ASK_EDIT_ACTIVE=0
 _ask_append_execution() {
   local command_text=$1 cwd_before=$2 exit_code=$3 review_command=${4:-$1} event
   event=$(command ask event --command "$command_text" --cwd-before "$cwd_before" \
-    --cwd-after "$PWD" --exit-status "$exit_code" --tty "$TTY" \
+    --cwd-after "$PWD" --exit-status "$exit_code" \
     --review-command "$review_command") || return
   _ASK_EVENTS+=("$event")
 }
@@ -141,7 +141,6 @@ _ask_with_context() {
     --cwd "$PWD"
     --tty "$TTY"
     --previous-status "$previous_status"
-    --terminal-program "${TERM_PROGRAM-}"
   )
   local event
   for event in "${_ASK_EVENTS[@]}"; do

@@ -33,15 +33,13 @@ class App:
 
     def conversation(self, session: Session, request: str) -> Conversation:
         if session.events:
-            fallback_text = capture(session.tty) if session.history else None
+            fallback_text = capture() if session.history else None
             result = conversation_from_events(session, request, fallback_text)
         elif not session.history:
             result = Conversation()
             result.user(request)
         else:
-            result = conversation_from_transcript(
-                session, request, capture(session.tty)
-            )
+            result = conversation_from_transcript(session, request, capture())
 
         return result
 

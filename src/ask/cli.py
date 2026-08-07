@@ -2,10 +2,8 @@ import argparse
 import base64
 import json
 import os
-import re
 import sys
 from pathlib import Path
-from time import sleep
 from uuid import uuid4
 
 from ask.app import App
@@ -28,7 +26,6 @@ def parser() -> argparse.ArgumentParser:
         command.add_argument("--cwd", required=True)
         command.add_argument("--tty", required=True)
         command.add_argument("--previous-status", type=int, required=True)
-        command.add_argument("--terminal-program", required=True)
         command.add_argument("--history-entry", action="append", default=[])
         # Opaque, base64-encoded event records passed only by the Zsh plugin.
         command.add_argument("--event", action="append", default=[])
@@ -41,7 +38,6 @@ def parser() -> argparse.ArgumentParser:
     event.add_argument("--cwd-before", required=True)
     event.add_argument("--cwd-after", required=True)
     event.add_argument("--exit-status", type=int, required=True)
-    event.add_argument("--tty")
 
     return root
 
@@ -52,7 +48,7 @@ def main() -> int:
     try:
         if args.command == "event":
             output = _captured_output(
-                args.tty, args.review_command or args.event_command, args.event_command
+                args.review_command or args.event_command, args.event_command
             )
             print(
                 _encode_event(
@@ -76,7 +72,6 @@ def main() -> int:
             args.tty,
             args.previous_status,
             args.history_entry,
-            args.terminal_program,
             _events(args.event),
         )
 
@@ -85,7 +80,7 @@ def main() -> int:
 
         if args.command == "snapshot":
             path = _write_snapshot(
-                args.output, session.terminal_program, app.snapshot(session, request)
+                args.output, app.snapshot(session, request)
             )
             print(path)
             return 0
@@ -140,21 +135,10 @@ def _events(values: list[str]) -> list[dict]:
     return result
 
 
-def _captured_output(
-    tty: str | None, review_command: str, executed_command: str
-) -> str:
-    """Wait briefly for Terminal.app to publish output to its scrollback."""
-
-    if not tty:
-        return ""
-
-    # A single delayed read gives Terminal.app time to publish scrollback without
-    # repeatedly launching osascript for silent commands such as `rm`.
-    sleep(0.1)
-
+def _captured_output(review_command: str, executed_command: str) -> str:
     try:
         return _without_echoed_command(
-            output_after_review(tty, review_command), executed_command
+            output_after_review(review_command), executed_command
         )
     except (AskError, OSError):
         return ""
@@ -189,15 +173,12 @@ def _encode_event(event: dict) -> str:
     )
 
 
-def _write_snapshot(output: str, terminal_program: str, payload: object) -> Path:
+def _write_snapshot(output: str, payload: object) -> Path:
     target = Path(output).expanduser()
     directory = target if target.is_dir() or output.endswith(os.sep) else target.parent
     directory.mkdir(parents=True, exist_ok=True)
-    terminal = re.sub(r"[^A-Za-z0-9._-]+", "-", terminal_program).strip(".-")
-    terminal = terminal or "terminal"
-
     while True:
-        path = directory / f"{terminal}-{uuid4()}.json"
+        path = directory / f"tmux-{uuid4()}.json"
 
         try:
             with path.open("x", encoding="utf-8") as snapshot:
