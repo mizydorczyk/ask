@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from time import perf_counter
-from typing import Any
+from typing import Any, cast
 
 from ask.conversation import Conversation
 from ask.errors import AskError
@@ -10,6 +10,7 @@ from ask.openai.responses import OpenAIResponsesModel, Usage
 from ask.terminal.transcript import (
     Session,
     capture,
+    conversation_from_events,
 )
 from ask.terminal.transcript import (
     conversation as conversation_from_transcript,
@@ -31,12 +32,18 @@ class App:
     last_metrics: RequestMetrics | None = field(init=False, default=None)
 
     def conversation(self, session: Session, request: str) -> Conversation:
-        if not session.history:
+        if session.events:
+            fallback_text = capture(session.tty) if session.history else None
+            result = conversation_from_events(session, request, fallback_text)
+        elif not session.history:
             result = Conversation()
             result.user(request)
-            return result
+        else:
+            result = conversation_from_transcript(
+                session, request, capture(session.tty)
+            )
 
-        return conversation_from_transcript(session, request, capture(session.tty))
+        return result
 
     def request(
         self,
@@ -47,8 +54,10 @@ class App:
         started = perf_counter()
         conversation = self.conversation(session, request)
         prepared = perf_counter()
+
         if on_model_request:
             on_model_request()
+
         proposal = self.model.propose(conversation, definitions())
         finished = perf_counter()
         self.last_metrics = RequestMetrics(
@@ -57,6 +66,7 @@ class App:
             finished - started,
             getattr(self.model, "last_usage", None),
         )
+
         return proposal
 
     def snapshot(self, session: Session, request: str) -> dict[str, Any]:
@@ -66,4 +76,9 @@ class App:
         if not callable(request_parameters):
             raise AskError("the configured model does not support OpenAI snapshots")
 
-        return request_parameters(conversation, definitions())
+        payload = request_parameters(conversation, definitions())
+
+        if not isinstance(payload, dict):
+            raise AskError("the configured model returned an invalid snapshot")
+
+        return cast(dict[str, Any], payload)

@@ -1,0 +1,156 @@
+{
+  "model": "gpt-5.6-luna",
+  "reasoning": {
+    "effort": "low"
+  },
+  "text": {
+    "verbosity": "low"
+  },
+  "max_output_tokens": 1024,
+  "parallel_tool_calls": false,
+  "input": [
+    {
+      "type": "message",
+      "role": "developer",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "You are ask, a concise assistant for a Zsh terminal.\n\nUse the terminal event history supplied in the conversation as context. For an\nexplanation or when a command would not help, reply with concise plain text.\nWhen the user needs one shell command, make exactly one shell function call\nwith the command, then briefly explain what the command does. The command runs\nin the live Zsh shell's current working directory. The function call is only a\nproposal: never claim that it has run. Do not make more than one function call.\n\nask is for terminal tasks: creating, fixing, explaining, and improving shell\ncommands. For requests to edit source code, write documentation, or have\ngeneral-purpose chat, briefly explain that the request is outside ask's scope\nand do not make a shell function call.\n\nNever put a shell command, code block, or copy-pasteable shell snippet in plain\ntext. If your response includes a command, it must be the shell function call\nand not message text. A canceled proposal in the conversation was not executed.\nWhen the next user message adds a constraint to a canceled proposal, revise that\nproposal directly instead of asking for information the user has already given.\n"
+        }
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "Hi",
+          "prompt_cache_breakpoint": {
+            "mode": "explicit"
+          }
+        }
+      ]
+    },
+    {
+      "type": "message",
+      "role": "assistant",
+      "content": "Hi! What terminal task can I help with?"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "Create new rust project",
+          "prompt_cache_breakpoint": {
+            "mode": "explicit"
+          }
+        }
+      ]
+    },
+    {
+      "type": "message",
+      "role": "assistant",
+      "content": "Review this command."
+    },
+    {
+      "type": "function_call",
+      "id": "fc_call_ro86zvmDyYFWZjPnhAuSG8VS",
+      "call_id": "call_ro86zvmDyYFWZjPnhAuSG8VS",
+      "name": "shell",
+      "arguments": "{\"command\":\"cargo new rust-project\"}",
+      "status": "completed"
+    },
+    {
+      "type": "function_call_output",
+      "call_id": "call_ro86zvmDyYFWZjPnhAuSG8VS",
+      "output": "{\"status\":\"cancelled\",\"reason\":\"The user cancelled the proposal; it was not executed.\"}"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "In Development folder, name it browser9000",
+          "prompt_cache_breakpoint": {
+            "mode": "explicit"
+          }
+        }
+      ]
+    },
+    {
+      "type": "message",
+      "role": "assistant",
+      "content": "Review this command."
+    },
+    {
+      "type": "function_call",
+      "id": "fc_call_SpgdTrU3y4PM9G49Knvsz01D",
+      "call_id": "call_SpgdTrU3y4PM9G49Knvsz01D",
+      "name": "shell",
+      "arguments": "{\"command\":\"mkdir -p Development && cargo new Development/browser9000\"}",
+      "status": "completed"
+    },
+    {
+      "type": "function_call_output",
+      "call_id": "call_SpgdTrU3y4PM9G49Knvsz01D",
+      "output": "{\"status\":\"edited\",\"executed_command\":\"mkdir -p Development && cargo new Development/browser8000\",\"cwd_before\":\"/Users/miz\",\"cwd_after\":\"/Users/miz\",\"output\":\"    Creating binary (application) `browser8000` package\\nnote: see more `Cargo.toml` keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html\",\"exit_status\":0}"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "Now, remove it"
+        }
+      ]
+    },
+    {
+      "type": "message",
+      "role": "assistant",
+      "content": "Review this command."
+    },
+    {
+      "type": "function_call",
+      "id": "fc_call_BQYXhYMj0d9E2k1EDgFidctS",
+      "call_id": "call_BQYXhYMj0d9E2k1EDgFidctS",
+      "name": "shell",
+      "arguments": "{\"command\":\"rm -rf Development/browser8000\"}",
+      "status": "completed"
+    },
+    {
+      "type": "function_call_output",
+      "call_id": "call_BQYXhYMj0d9E2k1EDgFidctS",
+      "output": "{\"status\":\"completed\",\"executed_command\":\"rm -rf Development/browser8000\",\"cwd_before\":\"/Users/miz\",\"cwd_after\":\"/Users/miz\",\"output\":\"\",\"exit_status\":0}"
+    }
+  ],
+  "prompt_cache_key": "ask:terminal-command-assistant:v1",
+  "prompt_cache_options": {
+    "mode": "explicit"
+  },
+  "tools": [
+    {
+      "type": "function",
+      "name": "shell",
+      "description": "Runs a command in the user's current shell working directory.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "command": {
+            "type": "string",
+            "description": "The exact shell command to run."
+          }
+        },
+        "required": [
+          "command"
+        ],
+        "additionalProperties": false
+      },
+      "strict": true
+    }
+  ]
+}

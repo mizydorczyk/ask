@@ -9,6 +9,10 @@ class ConversationTests(unittest.TestCase):
         conversation.shell(1, "cargo test", "/work", "ok", 0)
 
         self.assertEqual(conversation.turns, [
-            ToolCall("shell_1", "shell", {"command": "cargo test", "cwd": "/work"}),
-            ToolResult("shell_1", {"output": "ok", "exit_status": 0}),
+            ToolCall("call_shell_1", "shell", {"command": "cargo test"}),
+            ToolResult("call_shell_1", {
+                "status": "completed", "executed_command": "cargo test",
+                "cwd_before": "/work", "cwd_after": "/work",
+                "output": "ok", "exit_status": 0,
+            }),
         ])

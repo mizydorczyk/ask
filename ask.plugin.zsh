@@ -1,11 +1,39 @@
 # `?` is a one-character glob in Zsh, so disable globbing before dispatching.
 autoload -Uz add-zsh-hook
 typeset -ga _ASK_SESSION_HISTORY=()
+typeset -ga _ASK_EVENTS=()
 typeset -g _ASK_PENDING_REQUEST=""
 typeset -g _ASK_PENDING_STATUS=0
+typeset -g _ASK_EDIT_COMMAND=""
+typeset -g _ASK_EDIT_REVIEW_COMMAND=""
+typeset -g _ASK_EDIT_CWD=""
+typeset -g _ASK_EDIT_ACTIVE=0
+
+_ask_append_execution() {
+  local command_text=$1 cwd_before=$2 exit_code=$3 review_command=${4:-$1} event
+  event=$(command ask event --command "$command_text" --cwd-before "$cwd_before" \
+    --cwd-after "$PWD" --exit-status "$exit_code" --tty "$TTY" \
+    --review-command "$review_command") || return
+  _ASK_EVENTS+=("$event")
+}
+
+_ask_record_edited_execution() {
+  [[ -n $_ASK_EDIT_COMMAND && $_ASK_EDIT_ACTIVE -eq 1 ]] || return
+  _ask_append_execution "$_ASK_EDIT_COMMAND" "$_ASK_EDIT_CWD" "$?" \
+    "$_ASK_EDIT_REVIEW_COMMAND"
+  _ASK_EDIT_COMMAND=""
+  _ASK_EDIT_REVIEW_COMMAND=""
+  _ASK_EDIT_CWD=""
+  _ASK_EDIT_ACTIVE=0
+}
 
 _ask_record_command() {
   _ASK_SESSION_HISTORY+=("$1")
+  if [[ -n $_ASK_EDIT_COMMAND && $_ASK_EDIT_ACTIVE -eq 0 ]]; then
+    _ASK_EDIT_COMMAND=$1
+    _ASK_EDIT_CWD=$PWD
+    _ASK_EDIT_ACTIVE=1
+  fi
   while (( ${#_ASK_SESSION_HISTORY} > 21 )); do
     _ASK_SESSION_HISTORY[1]=()
   done
@@ -13,6 +41,8 @@ _ask_record_command() {
 
 (( ${preexec_functions[(Ie)_ask_record_command]} )) || \
   add-zsh-hook preexec _ask_record_command
+(( ${precmd_functions[(Ie)_ask_record_edited_execution]} )) || \
+  add-zsh-hook precmd _ask_record_edited_execution
 
 _ask_dispatch_pending() {
   [[ -n $_ASK_PENDING_REQUEST ]] || return
@@ -113,6 +143,10 @@ _ask_with_context() {
     --previous-status "$previous_status"
     --terminal-program "${TERM_PROGRAM-}"
   )
+  local event
+  for event in "${_ASK_EVENTS[@]}"; do
+    metadata+=(--event "$event")
+  done
   local history_index history_entry
   for (( history_index = 1; history_index < history_count; history_index++ )); do
     history_entry=${_ASK_SESSION_HISTORY[$history_index]}
@@ -147,19 +181,30 @@ _ask_request() {
   fi
 
   local action=${response%%$'\n'*}
+  response=${response#*$'\n'}
+  local event_update=${response%%$'\n'*}
   local command_text=""
   if [[ $response == *$'\n'* ]]; then
     command_text=${response#*$'\n'}
   fi
+  [[ -n $event_update ]] && _ASK_EVENTS+=("$event_update")
 
   case $action in
     (run)
       [[ -n $command_text ]] || return 1
       print -s -- "$command_text"
+      local cwd_before=$PWD
       eval -- "$command_text"
+      local command_status=$?
+      _ask_append_execution "$command_text" "$cwd_before" "$command_status"
+      return $command_status
       ;;
     (edit)
       [[ -n $command_text ]] || return 1
+      _ASK_EDIT_COMMAND=$command_text
+      _ASK_EDIT_REVIEW_COMMAND=$command_text
+      _ASK_EDIT_CWD=$PWD
+      _ASK_EDIT_ACTIVE=0
       print -rz -- "$command_text"
       ;;
     (cancel | done)

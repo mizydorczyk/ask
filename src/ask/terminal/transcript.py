@@ -20,6 +20,7 @@ class Session:
     exit_status: int
     history: list[str]
     terminal_program: str = ""
+    events: list[dict] | None = None
 
 
 def capture(tty: str) -> str:
@@ -79,6 +80,7 @@ def entries(session: Session, text: str) -> list[tuple[str, str, int | None]]:
     prompt = text[line_start:current_at]
     if not prompt:
         raise AskError("cannot identify the current Terminal.app prompt")
+    prompt_suffix = prompt[-2:]
 
     boundary = line_start
     found: list[tuple[str, str, int | None]] = []
@@ -95,7 +97,7 @@ def entries(session: Session, text: str) -> list[tuple[str, str, int | None]]:
                 candidate + len(anchor) :
             ].startswith("\n" + REVIEW_CONTROLS)
 
-            if prefix == prompt or reviewed:
+            if prefix == prompt or prefix.endswith(prompt_suffix) or reviewed:
                 output_start = text.find("\n", candidate + len(anchor), boundary)
                 output_start = boundary if output_start < 0 else output_start + 1
 
@@ -144,12 +146,31 @@ def reviewed_proposal(output: str) -> tuple[str, str, str] | None:
     return output[:proposal].rstrip("\n"), command, terminal_output
 
 
+def output_after_review(tty: str, command: str) -> str:
+    """Return output rendered after the latest review of *command*.
+
+    Capture is best-effort: event recording must not interfere with the live
+    shell command when Terminal.app automation is unavailable.
+    """
+    text = capture(tty).replace("\r\n", "\n").replace("\r", "\n")
+    marker = f"{REVIEW_PREFIX}{command}\n{REVIEW_CONTROLS}"
+    position = text.rfind(marker)
+    if position < 0:
+        raise AskError("cannot find the reviewed command in Terminal.app scrollback")
+    return text[position + len(marker) :].removeprefix("\n").rstrip("\n")
+
+
 def conversation(session: Session, request: str, text: str) -> Conversation:
     result = Conversation()
+    history = entries(session, text)
+    index = 0
 
-    for sequence, (command, output, status) in enumerate(entries(session, text), 1):
+    while index < len(history):
+        sequence = index + 1
+        command, output, status = history[index]
         if command.startswith("?"):
             if output.lstrip().startswith("ask: "):
+                index += 1
                 continue
 
             result.user(command[1:].lstrip())
@@ -157,33 +178,139 @@ def conversation(session: Session, request: str, text: str) -> Conversation:
             reviewed = reviewed_proposal(output)
             if reviewed:
                 comment, reviewed_command, reviewed_output = reviewed
-                was_executed = (
-                    bool(reviewed_output)
-                    or reviewed_command.rstrip(" \t")
-                    == session.previous_command.rstrip(" \t")
+                call_id = f"call_ask_shell_{sequence}"
+                executed_command = (
+                    reviewed_command
+                    if (
+                        bool(reviewed_output)
+                        or reviewed_command.rstrip(" \t")
+                        == session.previous_command.rstrip(" \t")
+                    )
+                    else None
                 )
-                if was_executed:
-                    result.assistant(comment)
-                    result.shell(
-                        sequence,
-                        reviewed_command,
-                        session.cwd,
-                        reviewed_output,
-                        status,
+                executed_output = reviewed_output
+                executed_status = status
+
+                if (
+                    executed_command is None
+                    and index + 1 < len(history)
+                    and not history[index + 1][0].startswith("?")
+                ):
+                    executed_command, executed_output, executed_status = history[
+                        index + 1
+                    ]
+                    index += 1
+
+                result.assistant(comment)
+                result.shell_call(call_id, reviewed_command)
+                if executed_command:
+                    result.tool_result(
+                        call_id,
+                        {
+                            "status": (
+                                "completed"
+                                if executed_command.rstrip(" \t")
+                                == reviewed_command.rstrip(" \t")
+                                else "edited"
+                            ),
+                            "executed_command": executed_command,
+                            "cwd_before": session.cwd,
+                            "cwd_after": session.cwd,
+                            "output": executed_output,
+                            "exit_status": executed_status,
+                        },
                     )
                 else:
-                    result.assistant(
-                        f"{comment}\n\nThe user canceled the proposed command: "
-                        f"{reviewed_command}\n"
-                        "Treat a later constraint as a request to revise this "
-                        "proposal; do not assume it was executed."
+                    result.tool_result(
+                        call_id,
+                        {
+                            "status": "cancelled",
+                            "reason": "The user cancelled the proposal; it was not executed.",
+                        },
                     )
             else:
                 result.assistant(output)
         else:
             result.shell(sequence, command, session.cwd, output, status)
 
+        index += 1
+
     if request:
         result.user(request)
 
+    return result
+
+
+def conversation_from_events(
+    session: Session, request: str, fallback_text: str | None = None
+) -> Conversation:
+    """Build authoritative ask history from the plugin's in-memory event log."""
+    result = Conversation()
+    sequence = 0
+    event_commands = {
+        event.get("command", "") for event in session.events or []
+        if event.get("type") == "shell"
+    }
+    # Scrollback remains useful for commands the user ran outside ask. It never
+    # replaces an ask event, including a silent command such as `cd`.
+    if fallback_text is not None:
+        for command, output, status in entries(session, fallback_text):
+            if not command.startswith("?") and command not in event_commands:
+                sequence += 1
+                result.shell(sequence, command, session.cwd, output, status)
+    pending_call: tuple[str, str, str] | None = None
+    for event_index, event in enumerate(session.events or [], start=1):
+        if event.get("type") == "ask":
+            result.user(event.get("request", ""))
+            comment = event.get("assistant", "")
+            command = event.get("command")
+            resolution = event.get("resolution")
+            result.assistant(comment)
+            if command:
+                call_id = event.get("call_id") or f"call_ask_shell_{event_index}"
+                item_id = event.get("call_item_id")
+                result.shell_call(
+                    call_id, command, item_id if isinstance(item_id, str) else None
+                )
+                if resolution == "cancel":
+                    result.tool_result(
+                        call_id,
+                        {
+                            "status": "cancelled",
+                            "reason": "The user cancelled the proposal; it was not executed.",
+                        },
+                    )
+                else:
+                    pending_call = (call_id, command, resolution or "completed")
+        elif event.get("type") == "shell":
+            if pending_call:
+                call_id, proposed_command, resolution = pending_call
+                executed_command = event.get("command", "")
+                result.tool_result(
+                    call_id,
+                    {
+                        "status": (
+                            "edited"
+                            if resolution == "edit" or executed_command != proposed_command
+                            else "completed"
+                        ),
+                        "executed_command": executed_command,
+                        "cwd_before": event.get("cwd_before", ""),
+                        "cwd_after": event.get("cwd_after", ""),
+                        "output": event.get("output", ""),
+                        "exit_status": event.get("exit_status"),
+                    },
+                )
+                pending_call = None
+            else:
+                sequence += 1
+                result.shell(
+                    sequence,
+                    event.get("command", ""),
+                    event.get("cwd_before", ""),
+                    event.get("output", ""),
+                    event.get("exit_status"),
+                )
+    if request:
+        result.user(request)
     return result

@@ -33,7 +33,7 @@ class ShellTests(unittest.TestCase):
                 env=environment,
             )
 
-            self.assertEqual(result.stdout.strip(), "1:1:1:1")
+            self.assertEqual(result.stdout.strip(), "1:1:1:2")
             self.assertFalse(invoked.exists())
 
     def test_plugin_uses_the_installed_executable_for_requests(self):

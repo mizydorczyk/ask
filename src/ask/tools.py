@@ -10,16 +10,20 @@ class ToolDefinition:
 
 
 def definitions() -> list[ToolDefinition]:
-    return [ToolDefinition(
-        name="shell",
-        description="Runs a command in the user's current shell working directory.",
-        parameters={
-            "type": "object",
-            "properties": {
-                "command": {"type": "string", "description": "The exact shell command to run."},
-                "cwd": {"type": "string", "description": "The working directory in which to run the command."},
+    return [
+        ToolDefinition(
+            name="shell",
+            description="Runs a command in the user's current shell working directory.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "command": {
+                        "type": "string",
+                        "description": "The exact shell command to run.",
+                    },
+                },
+                "required": ["command"],
+                "additionalProperties": False,
             },
-            "required": ["command", "cwd"],
-            "additionalProperties": False,
-        },
-    )]
+        )
+    ]

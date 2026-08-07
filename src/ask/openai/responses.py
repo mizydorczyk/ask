@@ -25,12 +25,12 @@ VERBOSITY = "low"
 MAX_OUTPUT_TOKENS = 1024
 INSTRUCTIONS = """You are ask, a concise assistant for a Zsh terminal.
 
-Use the terminal history supplied in the conversation as context. For an
+Use the terminal event history supplied in the conversation as context. For an
 explanation or when a command would not help, reply with concise plain text.
 When the user needs one shell command, make exactly one shell function call
-with the command and its working directory, then briefly explain what the
-command does. The function call is only a proposal: never claim that it has
-run. Do not make more than one function call.
+with the command, then briefly explain what the command does. The command runs
+in the live Zsh shell's current working directory. The function call is only a
+proposal: never claim that it has run. Do not make more than one function call.
 
 ask is for terminal tasks: creating, fixing, explaining, and improving shell
 commands. For requests to edit source code, write documentation, or have
@@ -84,7 +84,7 @@ def request(conversation: Conversation, tools: list[ToolDefinition]) -> dict[str
                 {
                     "type": "function_call",
                     "id": f"fc_{turn.id}",
-                    "call_id": f"call_{turn.id}",
+                    "call_id": turn.id,
                     "name": turn.tool,
                     "arguments": json.dumps(turn.arguments, separators=(",", ":")),
                     "status": "completed",
@@ -94,7 +94,7 @@ def request(conversation: Conversation, tools: list[ToolDefinition]) -> dict[str
             input_items.append(
                 {
                     "type": "function_call_output",
-                    "call_id": f"call_{turn.call_id}",
+                    "call_id": turn.call_id,
                     "output": json.dumps(turn.output, separators=(",", ":")),
                 }
             )
@@ -225,10 +225,20 @@ def proposal(response: Any) -> Proposal:
         raise AskError("OpenAI returned an invalid command proposal") from error
 
     command = arguments.get("command") if isinstance(arguments, dict) else None
+    if not isinstance(arguments, dict) or set(arguments) != {"command"}:
+        raise AskError("OpenAI returned an invalid command proposal")
     if not isinstance(command, str) or not command.strip():
         raise AskError("OpenAI returned a command proposal without a command")
 
-    return Proposal("review", comment or "Review this command.", command)
+    call_id = getattr(calls[0], "call_id", None)
+    if not isinstance(call_id, str) or not call_id:
+        call_id = None
+    item_id = getattr(calls[0], "id", None)
+    if not isinstance(item_id, str) or not item_id:
+        item_id = None
+    return Proposal(
+        "review", comment or "Review this command.", command, call_id, item_id
+    )
 
 
 @dataclass(frozen=True)

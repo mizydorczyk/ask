@@ -25,6 +25,8 @@ class FunctionCall:
     def __init__(self, name: str, arguments: str) -> None:
         self.name = name
         self.arguments = arguments
+        self.call_id = "call_native"
+        self.id = "fc_native"
 
 
 class Response:
@@ -71,11 +73,24 @@ class OpenAIResponsesTests(unittest.TestCase):
         self.assertEqual(result["input"][1]["name"], "shell")
         self.assertEqual(
             json.loads(result["input"][1]["arguments"]),
-            {"command": "cargo test", "cwd": "/work"},
+            {"command": "cargo test"},
         )
         self.assertEqual(
-            json.loads(result["input"][2]["output"]), {"output": "ok", "exit_status": 0}
+            json.loads(result["input"][2]["output"]), {
+                "status": "completed", "executed_command": "cargo test",
+                "cwd_before": "/work", "cwd_after": "/work",
+                "output": "ok", "exit_status": 0,
+            }
         )
+        self.assertEqual(result["input"][1]["call_id"], "call_shell_1")
+        self.assertEqual(result["input"][1]["id"], "fc_call_shell_1")
+
+    def test_shell_tool_has_only_a_command_and_rejects_a_cwd_argument(self):
+        tool = definitions()[0]
+        self.assertEqual(tool.parameters["required"], ["command"])
+        self.assertEqual(set(tool.parameters["properties"]), {"command"})
+        with self.assertRaises(AskError):
+            proposal(Response([FunctionCall("shell", '{"command":"pwd","cwd":"/work"}')], ""))
 
     def test_request_caches_reusable_history_but_not_the_current_request(self):
         conversation = Conversation()
@@ -208,7 +223,7 @@ class OpenAIResponsesTests(unittest.TestCase):
     def test_shell_call_becomes_review_proposal(self):
         client = RecordingClient(
             Response(
-                [FunctionCall("shell", '{"command":"git status","cwd":"/work"}')],
+                [FunctionCall("shell", '{"command":"git status"}')],
                 "Shows the working tree.",
             )
         )
@@ -218,11 +233,13 @@ class OpenAIResponsesTests(unittest.TestCase):
         self.assertEqual(result.kind, "review")
         self.assertEqual(result.comment, "Shows the working tree.")
         self.assertEqual(result.command, "git status")
+        self.assertEqual(result.call_id, "call_native")
+        self.assertEqual(result.call_item_id, "fc_native")
 
     def test_shell_call_without_text_gets_a_review_prompt(self):
         result = proposal(
             Response(
-                [FunctionCall("shell", '{"command":"git status","cwd":"/work"}')],
+                [FunctionCall("shell", '{"command":"git status"}')],
                 "",
             )
         )

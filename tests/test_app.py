@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import patch
 
 from ask.app import App
-from ask.conversation import Conversation, Message
+from ask.conversation import Conversation, Message, ToolCall, ToolResult
 from ask.model import Proposal
 from ask.openai.responses import OpenAIResponsesModel
 from ask.terminal.transcript import Session
@@ -63,6 +63,56 @@ class AppTests(unittest.TestCase):
 
         self.assertEqual(result, {"input": "snapshot"})
         self.assertEqual(model.conversation, Conversation([Message("user", "explain")]))
+
+    def test_event_history_is_authoritative_and_records_silent_cd(self):
+        model = RecordingModel()
+        session = Session("", "", "/work/next", "/dev/ttys001", 0, [], events=[
+            {"type": "ask", "request": "enter next", "cwd": "/work", "assistant": "Changes directory.", "command": "cd next", "call_id": "call_native_cd", "call_item_id": "fc_native_cd", "resolution": "run"},
+            {"type": "shell", "command": "cd next", "cwd_before": "/work", "cwd_after": "/work/next", "exit_status": 0, "output": ""},
+        ])
+
+        App(model).request(session, "what directory am I in?")
+
+        conversation = model.conversation
+        assert conversation is not None
+        self.assertEqual(conversation.turns[-1], Message("user", "what directory am I in?"))
+        self.assertIn(ToolCall("call_native_cd", "shell", {"command": "cd next"}, "fc_native_cd"), conversation.turns)
+        self.assertIn(ToolResult("call_native_cd", {
+            "status": "completed", "executed_command": "cd next",
+            "cwd_before": "/work", "cwd_after": "/work/next",
+            "output": "", "exit_status": 0,
+        }), conversation.turns)
+
+    def test_cancelled_event_uses_a_linked_tool_result(self):
+        model = RecordingModel()
+        session = Session("", "", "/work", "/dev/ttys001", 0, [], events=[
+            {"type": "ask", "request": "create", "cwd": "/work", "assistant": "Creates it.", "command": "cargo new demo", "call_id": "call_cancel", "resolution": "cancel"},
+        ])
+
+        App(model).request(session, "try another name")
+
+        conversation = model.conversation
+        assert conversation is not None
+        self.assertIn(ToolCall("call_cancel", "shell", {"command": "cargo new demo"}), conversation.turns)
+        self.assertIn(ToolResult("call_cancel", {
+            "status": "cancelled",
+            "reason": "The user cancelled the proposal; it was not executed.",
+        }), conversation.turns)
+
+    @patch("ask.app.capture")
+    def test_event_context_keeps_unrelated_scrollback_commands_as_fallback(self, capture):
+        capture.return_value = "prompt % git status\nclean\nprompt % ? ask"
+        model = RecordingModel()
+        session = Session("", "? ask", "/work", "/dev/ttys001", 0, ["git status"], events=[
+            {"type": "ask", "request": "go home", "cwd": "/work", "assistant": "", "command": "cd ~", "resolution": "run"},
+            {"type": "shell", "command": "cd ~", "cwd_before": "/work", "cwd_after": "/Users/me", "exit_status": 0, "output": ""},
+        ])
+
+        App(model).request(session, "ask")
+
+        conversation = model.conversation
+        assert conversation is not None
+        self.assertIn(ToolCall("call_shell_1", "shell", {"command": "git status"}), conversation.turns)
 
     def test_snapshot_uses_the_default_model_without_an_api_key(self):
         session = Session("", "? explain", "/work", "/dev/ttys001", 0, [])

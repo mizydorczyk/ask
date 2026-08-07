@@ -9,11 +9,11 @@ The model acts as `ask`, a concise Zsh-terminal assistant, and uses the relevant
 - propose one shell command for the user to review, or
 - answer concisely in plain text when the user asks for an explanation or a command would not help.
 
-A command proposal is exactly one `shell` function call containing the command and its working directory, followed by a short explanation.
+A command proposal is exactly one `shell` function call containing only the command, followed by a short explanation.
 
 #### Conversational goals: What interactions will the model support?
 
-The model will handle the interactions documented in [examples.md](../docs/examples.md): creating, finding, compressing, fixing, explaining, and improving shell commands; common Git workflows; and project-aware requests such as running tests or locating an environment variable. It should use the supplied terminal history and conversation to infer the working directory, the previous command, errors, and relevant project context.
+The model will handle the interactions documented in [examples.md](../docs/examples.md): creating, finding, compressing, fixing, explaining, and improving shell commands; common Git workflows; and project-aware requests such as running tests or locating an environment variable. It should use the supplied terminal history and conversation for the previous command, errors, and relevant project context.
 
 For a command request, output exactly one structured `shell` tool call, followed by a short user-facing explanation. For explanation-only requests, output text only. Requests to edit source code, write documentation, or engage in general-purpose chat are outside the product scope; the model should say so briefly rather than fabricate a shell action.
 
@@ -24,15 +24,13 @@ The model must also support follow-up turns. When the user asks to fix or explai
 Build examples from the documented `ask` use cases, and reviewed, synthetic terminal scenarios. Do not train on
 a user's raw terminal history unless it has explicit permission, has been scrubbed of credentials and personal data, and is appropriate to retain.
 
-Convert each example to the Gemma 4 chat template with a consistent system instruction, one or more user-assistant turns, and optional structured terminal-history tool-call/tool-result context. The target for each assistant turn is either a single `shell` function call plus a concise explanation, or a concise text-only answer. Include the command's expected working directory, realistic stdout/stderr, and exit status where context is necessary. Include multi-turn examples for previous-command questions and canceled-proposal revisions. Validate every JSON/tool-call payload and remove secrets, access tokens, hostnames, and private paths before splitting the data into train, validation, and held-out test sets by scenario family.
-
 #### Success criteria: How will quality be measured?
 
 Compare the tuned model with the untuned `gemma-4-26b-a4b-it` baseline on the held-out set and through human review. A response succeeds when it:
 
 - selects text-only output versus a command proposal correctly;
 - emits exactly one valid `shell` call when a command is needed;
-- supplies a syntactically valid command and the correct working directory;
+- supplies a syntactically valid command that works in the supplied live directory;
 - respects terminal context and constraints such as macOS compatibility; and
 - is concise, helpful, and safe to present for review.
 
