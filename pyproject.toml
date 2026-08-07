@@ -17,3 +17,9 @@ build-backend = "uv_build"
 [tool.uv.build-backend]
 module-name = "ask"
 module-root = "src"
+
+[dependency-groups]
+dev = [
+    "jupyter>=1.1.1",
+    "pandas>=3.0.5",
+]

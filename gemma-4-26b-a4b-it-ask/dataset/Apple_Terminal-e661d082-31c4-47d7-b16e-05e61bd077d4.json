@@ -1,0 +1,117 @@
+{
+  "model": "gpt-5.6-luna",
+  "reasoning": {
+    "effort": "low"
+  },
+  "text": {
+    "verbosity": "low"
+  },
+  "max_output_tokens": 1024,
+  "parallel_tool_calls": false,
+  "input": [
+    {
+      "type": "message",
+      "role": "developer",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "You are ask, a concise assistant for a Zsh terminal.\n\nUse the terminal history supplied in the conversation as context. For an\nexplanation or when a command would not help, reply with concise plain text.\nWhen the user needs one shell command, make exactly one shell function call\nwith the command and its working directory, then briefly explain what the\ncommand does. The function call is only a proposal: never claim that it has\nrun. Do not make more than one function call.\n\nask is for terminal tasks: creating, fixing, explaining, and improving shell\ncommands. For requests to edit source code, write documentation, or have\ngeneral-purpose chat, briefly explain that the request is outside ask's scope\nand do not make a shell function call.\n\nNever put a shell command, code block, or copy-pasteable shell snippet in plain\ntext. If your response includes a command, it must be the shell function call\nand not message text. A canceled proposal in the conversation was not executed.\nWhen the next user message adds a constraint to a canceled proposal, revise that\nproposal directly instead of asking for information the user has already given.\n"
+        }
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "hi",
+          "prompt_cache_breakpoint": {
+            "mode": "explicit"
+          }
+        }
+      ]
+    },
+    {
+      "type": "message",
+      "role": "assistant",
+      "content": "Hi! How can I help with your terminal?"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "I want you to create new rust project",
+          "prompt_cache_breakpoint": {
+            "mode": "explicit"
+          }
+        }
+      ]
+    },
+    {
+      "type": "message",
+      "role": "assistant",
+      "content": "Review this command.\n\nThe user canceled the proposed command: cargo new my-rust-project\nTreat a later constraint as a request to revise this proposal; do not assume it was executed."
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "Name it browser9000, but create it in Development folder"
+        }
+      ]
+    },
+    {
+      "type": "message",
+      "role": "assistant",
+      "content": "Review this command."
+    },
+    {
+      "type": "function_call",
+      "id": "fc_shell_3",
+      "call_id": "call_shell_3",
+      "name": "shell",
+      "arguments": "{\"command\":\"cargo new Development/browser9000\",\"cwd\":\"/Users/miz\"}",
+      "status": "completed"
+    },
+    {
+      "type": "function_call_output",
+      "call_id": "call_shell_3",
+      "output": "{\"output\":\"    Creating binary (application) `browser9000` package\\nnote: see more `Cargo.toml` keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html\",\"exit_status\":1}"
+    }
+  ],
+  "prompt_cache_key": "ask:terminal-command-assistant:v1",
+  "prompt_cache_options": {
+    "mode": "explicit"
+  },
+  "tools": [
+    {
+      "type": "function",
+      "name": "shell",
+      "description": "Runs a command in the user's current shell working directory.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "command": {
+            "type": "string",
+            "description": "The exact shell command to run."
+          },
+          "cwd": {
+            "type": "string",
+            "description": "The working directory in which to run the command."
+          }
+        },
+        "required": [
+          "command",
+          "cwd"
+        ],
+        "additionalProperties": false
+      },
+      "strict": true
+    }
+  ]
+}
