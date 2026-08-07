@@ -177,6 +177,17 @@ class OpenAIResponsesTests(unittest.TestCase):
         self.assertEqual(client.responses.kwargs["text"], {"verbosity": "high"})
         self.assertEqual(client.responses.kwargs["max_output_tokens"], 2048)
 
+    def test_request_parameters_match_the_payload_sent_to_openai(self):
+        client = RecordingClient(Response([], "ok"))
+        model = OpenAIResponsesModel(client)
+        conversation = Conversation()
+        conversation.user("list files")
+
+        snapshot = model.request_parameters(conversation, definitions())
+        model.propose(conversation, definitions())
+
+        self.assertEqual(snapshot, client.responses.kwargs)
+
     def test_invalid_max_output_tokens_is_a_friendly_error(self):
         for value in ("many", "0", "-1"):
             with (

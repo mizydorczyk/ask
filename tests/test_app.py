@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from ask.app import App
 from ask.conversation import Conversation, Message
@@ -17,6 +18,11 @@ class RecordingModel:
         self.conversation = conversation
         self.tools = tools
         return Proposal("done", "ok")
+
+    def request_parameters(self, conversation: Conversation, tools: list[ToolDefinition]):
+        self.conversation = conversation
+        self.tools = tools
+        return {"input": "snapshot"}
 
 
 class AppTests(unittest.TestCase):
@@ -48,3 +54,21 @@ class AppTests(unittest.TestCase):
 
         self.assertEqual(proposal, Proposal("done", "ok"))
         self.assertEqual(events, ["generating", "model"])
+
+    def test_snapshot_uses_the_same_conversation_and_never_calls_propose(self):
+        model = RecordingModel()
+        session = Session("", "? explain", "/work", "/dev/ttys001", 0, [])
+
+        result = App(model).snapshot(session, "explain")
+
+        self.assertEqual(result, {"input": "snapshot"})
+        self.assertEqual(model.conversation, Conversation([Message("user", "explain")]))
+
+    def test_snapshot_uses_the_default_model_without_an_api_key(self):
+        session = Session("", "? explain", "/work", "/dev/ttys001", 0, [])
+
+        with patch.dict("os.environ", {}, clear=True):
+            result = App().snapshot(session, "explain")
+
+        self.assertEqual(result["model"], "gpt-5.6-luna")
+        self.assertEqual(result["input"][-1]["content"][0]["text"], "explain")

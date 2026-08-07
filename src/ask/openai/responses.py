@@ -136,18 +136,26 @@ class OpenAIResponsesModel:
         self._max_output_tokens = _max_tokens(max_output_tokens)
         self.last_usage: Usage | None = None
 
+    def request_parameters(
+        self, conversation: Conversation, tools: list[ToolDefinition]
+    ) -> dict[str, Any]:
+        """Return the exact keyword arguments used for a Responses API call."""
+        return {
+            "model": self._model,
+            "reasoning": {"effort": self._reasoning_effort},
+            "text": {"verbosity": self._verbosity},
+            "max_output_tokens": self._max_output_tokens,
+            "parallel_tool_calls": False,
+            **request(conversation, tools),
+        }
+
     def propose(
         self, conversation: Conversation, tools: list[ToolDefinition]
     ) -> Proposal:
         self.last_usage = None
         try:
             response = self._responses().create(
-                model=self._model,
-                reasoning={"effort": self._reasoning_effort},
-                text={"verbosity": self._verbosity},
-                max_output_tokens=self._max_output_tokens,
-                parallel_tool_calls=False,
-                **request(conversation, tools),
+                **self.request_parameters(conversation, tools)
             )
         except AuthenticationError as error:
             raise AskError(

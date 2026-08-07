@@ -1,9 +1,8 @@
 import os
-from pathlib import Path
 import subprocess
 import tempfile
 import unittest
-
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT / "ask.plugin.zsh"
@@ -44,7 +43,8 @@ class ShellTests(unittest.TestCase):
         self.assertNotIn("uv run", script)
         self.assertNotIn("python", script)
         self.assertNotIn("_ASK_DISPATCHING", script)
-        self.assertNotIn("(snapshot)", script)
+        self.assertIn("(snapshot)", script)
+        self.assertIn('_ask_with_context "$previous_status" snapshot "$@"', script)
 
     def test_zle_wraps_accept_line_to_preserve_other_plugins(self):
         script = PLUGIN.read_text()

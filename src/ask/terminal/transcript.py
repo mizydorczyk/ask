@@ -19,6 +19,7 @@ class Session:
     tty: str
     exit_status: int
     history: list[str]
+    terminal_program: str = ""
 
 
 def capture(tty: str) -> str:

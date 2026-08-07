@@ -1,8 +1,10 @@
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from time import perf_counter
+from typing import Any
 
 from ask.conversation import Conversation
+from ask.errors import AskError
 from ask.model import Model, Proposal
 from ask.openai.responses import OpenAIResponsesModel, Usage
 from ask.terminal.transcript import (
@@ -56,3 +58,12 @@ class App:
             getattr(self.model, "last_usage", None),
         )
         return proposal
+
+    def snapshot(self, session: Session, request: str) -> dict[str, Any]:
+        conversation = self.conversation(session, request)
+        request_parameters = getattr(self.model, "request_parameters", None)
+
+        if not callable(request_parameters):
+            raise AskError("the configured model does not support OpenAI snapshots")
+
+        return request_parameters(conversation, definitions())

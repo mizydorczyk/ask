@@ -35,6 +35,9 @@ ask() {
     (request | -*)
       command ask "$@"
       ;;
+    (snapshot)
+      _ask_snapshot "$previous_status" "${@:2}"
+      ;;
     (*)
       _ask_request "$previous_status" "$@"
       ;;
@@ -118,9 +121,18 @@ _ask_with_context() {
 
   if [[ $subcommand == request ]]; then
     command ask request "${metadata[@]}" -- "$@"
+  elif [[ $subcommand == snapshot ]]; then
+    command ask snapshot "${metadata[@]}" "$@"
   else
     command ask "$subcommand" "${metadata[@]}"
   fi
+}
+
+_ask_snapshot() {
+  local previous_status=$1
+  shift
+
+  _ask_with_context "$previous_status" snapshot "$@"
 }
 
 _ask_request() {
