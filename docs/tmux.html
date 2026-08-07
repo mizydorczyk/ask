@@ -3,7 +3,7 @@
 <meta http-equiv="content-type" content="text/html; charset=UTF-8">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>macOS Terminal Mockup</title>
+<title>tmux Terminal Mockup</title>
 <style>
   :root{
     --canvas:#0d1117;
@@ -17,6 +17,8 @@
     --red:#ff5f57;
     --yellow:#febc2e;
     --traffic-green:#28c840;
+    --tmux-status:#6caa71;
+    --tmux-text:#33414f;
   }
 
   *{box-sizing:border-box}
@@ -42,7 +44,7 @@
   }
 
   .titlebar{
-    height:54px;
+    height:50px;
     position:relative;
     display:flex;
     align-items:center;
@@ -115,6 +117,21 @@
 
   @keyframes blink{50%{opacity:0}}
 
+  .tmux-status{
+    min-height:34px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    margin:0 16px 16px;
+    padding:0 3px;
+    color:var(--tmux-text);
+    background:var(--tmux-status);
+    border-top:1px solid rgba(0,0,0,.18);
+    font:600 clamp(12px,1.1vw,17px)/1 "SFMono-Regular","SF Mono",Menlo,Monaco,Consolas,monospace;
+    letter-spacing:.02em;
+  }
+
   @media (max-width:760px){
     body{padding:12px}
     .terminal{border-radius:15px}
@@ -124,7 +141,7 @@
 </style>
 </head>
 <body>
-  <section class="terminal" aria-label="macOS Terminal mockup">
+  <section class="terminal" aria-label="tmux terminal mockup">
     <header class="titlebar">
       <div class="traffic" aria-hidden="true">
         <span class="r"></span><span class="y"></span><span class="g"></span>
@@ -142,6 +159,10 @@ Review this command.
 134M    ./project-delta/assets/data/sample-market-1m.csv
 111M    ./project-epsilon/target/release/deps/library-0123456789abcdef.rlib
 user@mac Development % <span class="cursor"></span></pre>
+    <footer class="tmux-status" aria-label="tmux status bar">
+      <span>[14] 1:zsh*</span>
+      <span>"mac" 00:10 08-Aug-26</span>
+    </footer>
   </section>
 
 

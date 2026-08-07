@@ -3,7 +3,7 @@
 Turn natural language into shell commands.
 
 <p align="center">
-    <img src="docs/example.png" alt="Example of ask proposing and running a command" />
+    <img src="docs/tmux.png" alt="ask proposing and running a command in tmux" />
 </p>
 
 Type `?` followed by your request. `ask` understands your terminal context and turns your intent into shell commands you can review before running.
