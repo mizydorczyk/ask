@@ -6,11 +6,10 @@ from unittest.mock import patch
 from ask.conversation import Conversation
 from ask.errors import AskError
 from ask.openai.responses import (
+    BASE_URL,
     INSTRUCTIONS,
     MAX_OUTPUT_TOKENS,
-    PROMPT_CACHE_KEY,
     REASONING_EFFORT,
-    VERBOSITY,
     OpenAIResponsesModel,
     Usage,
     proposal,
@@ -92,7 +91,7 @@ class OpenAIResponsesTests(unittest.TestCase):
         with self.assertRaises(AskError):
             proposal(Response([FunctionCall("shell", '{"command":"pwd","cwd":"/work"}')], ""))
 
-    def test_request_caches_reusable_history_but_not_the_current_request(self):
+    def test_request_uses_only_portable_message_fields(self):
         conversation = Conversation()
         conversation.user("first request")
         conversation.assistant("first response")
@@ -100,8 +99,6 @@ class OpenAIResponsesTests(unittest.TestCase):
 
         result = request(conversation, definitions())
 
-        self.assertEqual(result["prompt_cache_key"], PROMPT_CACHE_KEY)
-        self.assertEqual(result["prompt_cache_options"], {"mode": "explicit"})
         self.assertEqual(
             result["input"][0],
             {
@@ -111,8 +108,8 @@ class OpenAIResponsesTests(unittest.TestCase):
             },
         )
         self.assertEqual(
-            result["input"][1]["content"][0]["prompt_cache_breakpoint"],
-            {"mode": "explicit"},
+            result["input"][1]["content"][0],
+            {"type": "input_text", "text": "first request"},
         )
         self.assertEqual(
             result["input"][2],
@@ -122,7 +119,8 @@ class OpenAIResponsesTests(unittest.TestCase):
                 "content": "first response",
             },
         )
-        self.assertNotIn("prompt_cache_breakpoint", result["input"][3]["content"][0])
+        self.assertNotIn("prompt_cache_key", result)
+        self.assertNotIn("prompt_cache_options", result)
 
     @patch.dict(os.environ, {}, clear=True)
     def test_text_response_becomes_done_proposal(self):
@@ -139,18 +137,14 @@ class OpenAIResponsesTests(unittest.TestCase):
         self.assertEqual(result.kind, "done")
         self.assertEqual(result.comment, "`git status` shows the working tree.")
         self.assertEqual(client.responses.kwargs["model"], "gpt-5.6-luna")
-        self.assertEqual(client.responses.kwargs["prompt_cache_key"], PROMPT_CACHE_KEY)
-        self.assertEqual(
-            client.responses.kwargs["prompt_cache_options"], {"mode": "explicit"}
-        )
-        self.assertEqual(
-            client.responses.kwargs["reasoning"], {"effort": REASONING_EFFORT}
-        )
-        self.assertEqual(client.responses.kwargs["text"], {"verbosity": VERBOSITY})
         self.assertEqual(
             client.responses.kwargs["max_output_tokens"], MAX_OUTPUT_TOKENS
         )
         self.assertFalse(client.responses.kwargs["parallel_tool_calls"])
+        self.assertEqual(
+            client.responses.kwargs["reasoning"], {"effort": REASONING_EFFORT}
+        )
+        self.assertNotIn("text", client.responses.kwargs)
         self.assertEqual(
             OpenAIResponsesModel(client).last_usage,
             None,
@@ -164,7 +158,6 @@ class OpenAIResponsesTests(unittest.TestCase):
             {
                 "ASK_MODEL": "custom-model",
                 "ASK_REASONING_EFFORT": "high",
-                "ASK_VERBOSITY": "medium",
                 "ASK_MAX_OUTPUT_TOKENS": "1024",
             },
         ):
@@ -172,7 +165,6 @@ class OpenAIResponsesTests(unittest.TestCase):
 
         self.assertEqual(client.responses.kwargs["model"], "custom-model")
         self.assertEqual(client.responses.kwargs["reasoning"], {"effort": "high"})
-        self.assertEqual(client.responses.kwargs["text"], {"verbosity": "medium"})
         self.assertEqual(client.responses.kwargs["max_output_tokens"], 1024)
 
     def test_model_parameters_can_be_set_in_code(self):
@@ -181,7 +173,6 @@ class OpenAIResponsesTests(unittest.TestCase):
             client,
             model="custom-model",
             reasoning_effort="medium",
-            verbosity="high",
             max_output_tokens=2048,
         )
 
@@ -189,8 +180,33 @@ class OpenAIResponsesTests(unittest.TestCase):
 
         self.assertEqual(client.responses.kwargs["model"], "custom-model")
         self.assertEqual(client.responses.kwargs["reasoning"], {"effort": "medium"})
-        self.assertEqual(client.responses.kwargs["text"], {"verbosity": "high"})
         self.assertEqual(client.responses.kwargs["max_output_tokens"], 2048)
+
+    @patch("ask.openai.responses.OpenAI")
+    @patch.dict(
+        os.environ,
+        {"ASK_API_KEY": "ask-key", "ASK_BASE_URL": "https://models.example/v1"},
+        clear=True,
+    )
+    def test_client_uses_dedicated_compatible_endpoint_settings(self, factory):
+        client = RecordingClient(Response([], "ok"))
+        factory.return_value = client
+
+        OpenAIResponsesModel().propose(Conversation(), definitions())
+
+        factory.assert_called_once_with(
+            api_key="ask-key", base_url="https://models.example/v1"
+        )
+
+    @patch("ask.openai.responses.OpenAI")
+    @patch.dict(os.environ, {"ASK_API_KEY": "ask-key"}, clear=True)
+    def test_client_defaults_to_openai_compatible_openai_url(self, factory):
+        client = RecordingClient(Response([], "ok"))
+        factory.return_value = client
+
+        OpenAIResponsesModel().propose(Conversation(), definitions())
+
+        factory.assert_called_once_with(api_key="ask-key", base_url=BASE_URL)
 
     def test_request_parameters_match_the_payload_sent_to_openai(self):
         client = RecordingClient(Response([], "ok"))
@@ -269,9 +285,9 @@ class OpenAIResponsesTests(unittest.TestCase):
             with self.subTest(response=response), self.assertRaises(AskError):
                 proposal(response)
 
-    def test_missing_api_key_is_a_friendly_error(self):
+    def test_missing_dedicated_api_key_is_a_friendly_error(self):
         with (
-            patch.dict(os.environ, {}, clear=True),
-            self.assertRaisesRegex(AskError, "OPENAI_API_KEY is not set"),
+            patch.dict(os.environ, {"OPENAI_API_KEY": "ignored"}, clear=True),
+            self.assertRaisesRegex(AskError, "ASK_API_KEY is not set"),
         ):
             OpenAIResponsesModel().propose(Conversation(), definitions())

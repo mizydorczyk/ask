@@ -19,9 +19,8 @@ from ask.model import Proposal
 from ask.tools import ToolDefinition
 
 MODEL = "gpt-5.6-luna"
-PROMPT_CACHE_KEY = "ask:terminal-command-assistant:v1"
+BASE_URL = "https://api.openai.com/v1"
 REASONING_EFFORT = "low"
-VERBOSITY = "low"
 MAX_OUTPUT_TOKENS = 1024
 INSTRUCTIONS = """You are ask, a concise assistant for a Zsh terminal.
 
@@ -53,25 +52,12 @@ def request(conversation: Conversation, tools: list[ToolDefinition]) -> dict[str
             "content": [{"type": "input_text", "text": INSTRUCTIONS}],
         }
     ]
-    user_message_indexes = [
-        index
-        for index, turn in enumerate(conversation.turns)
-        if isinstance(turn, Message) and turn.role == "user"
-    ]
-    cache_breakpoints = set(user_message_indexes[:-1][-4:])
-
-    for index, turn in enumerate(conversation.turns):
+    for turn in conversation.turns:
         if isinstance(turn, Message):
             if turn.role == "assistant":
                 content: str | list[dict[str, Any]] = turn.content
             else:
-                input_text: dict[str, Any] = {
-                    "type": "input_text",
-                    "text": turn.content,
-                }
-                if index in cache_breakpoints:
-                    input_text["prompt_cache_breakpoint"] = {"mode": "explicit"}
-                content = [input_text]
+                content = [{"type": "input_text", "text": turn.content}]
             input_items.append(
                 {
                     "type": "message",
@@ -101,8 +87,6 @@ def request(conversation: Conversation, tools: list[ToolDefinition]) -> dict[str
 
     return {
         "input": input_items,
-        "prompt_cache_key": PROMPT_CACHE_KEY,
-        "prompt_cache_options": {"mode": "explicit"},
         "tools": [
             {
                 "type": "function",
@@ -121,18 +105,20 @@ class OpenAIResponsesModel:
         self,
         client: Any | None = None,
         model: str | None = None,
+        base_url: str | None = None,
+        api_key: str | None = None,
         reasoning_effort: str | None = None,
-        verbosity: str | None = None,
         max_output_tokens: int | None = None,
     ) -> None:
         self._client = client
         self._model = model or os.environ.get("ASK_MODEL") or MODEL
+        self._base_url = base_url or os.environ.get("ASK_BASE_URL") or BASE_URL
+        self._api_key = api_key or os.environ.get("ASK_API_KEY")
         self._reasoning_effort = (
             reasoning_effort
             or os.environ.get("ASK_REASONING_EFFORT")
             or REASONING_EFFORT
         )
-        self._verbosity = verbosity or os.environ.get("ASK_VERBOSITY") or VERBOSITY
         self._max_output_tokens = _max_tokens(max_output_tokens)
         self.last_usage: Usage | None = None
 
@@ -143,7 +129,6 @@ class OpenAIResponsesModel:
         return {
             "model": self._model,
             "reasoning": {"effort": self._reasoning_effort},
-            "text": {"verbosity": self._verbosity},
             "max_output_tokens": self._max_output_tokens,
             "parallel_tool_calls": False,
             **request(conversation, tools),
@@ -153,39 +138,42 @@ class OpenAIResponsesModel:
         self, conversation: Conversation, tools: list[ToolDefinition]
     ) -> Proposal:
         self.last_usage = None
+
         try:
             response = self._responses().create(
                 **self.request_parameters(conversation, tools)
             )
         except AuthenticationError as error:
             raise AskError(
-                "OpenAI authentication failed; check OPENAI_API_KEY"
+                "model endpoint authentication failed; check ASK_API_KEY"
             ) from error
         except PermissionDeniedError as error:
             raise AskError(
-                "OpenAI API key does not have permission for this request"
+                "ASK_API_KEY does not have permission for this model endpoint"
             ) from error
         except RateLimitError as error:
-            raise AskError("OpenAI rate limit reached; try again shortly") from error
+            raise AskError(
+                "model endpoint rate limit reached; try again shortly"
+            ) from error
         except APIConnectionError as error:
             raise AskError(
-                "cannot connect to OpenAI; check your network connection"
+                "cannot connect to model endpoint; check ASK_BASE_URL and your network"
             ) from error
         except APIStatusError as error:
             raise AskError(
-                f"OpenAI request failed (status {error.status_code})"
+                f"model endpoint request failed (status {error.status_code})"
             ) from error
         except OpenAIError as error:
-            raise AskError("OpenAI request failed") from error
+            raise AskError("model endpoint request failed") from error
 
         self.last_usage = usage(response)
         return proposal(response)
 
     def _responses(self) -> Any:
         if self._client is None:
-            if not os.environ.get("OPENAI_API_KEY"):
-                raise AskError("OPENAI_API_KEY is not set")
-            self._client = OpenAI()
+            if not self._api_key:
+                raise AskError("ASK_API_KEY is not set")
+            self._client = OpenAI(api_key=self._api_key, base_url=self._base_url)
 
         return self._client.responses
 
@@ -236,6 +224,7 @@ def proposal(response: Any) -> Proposal:
     item_id = getattr(calls[0], "id", None)
     if not isinstance(item_id, str) or not item_id:
         item_id = None
+
     return Proposal(
         "review", comment or "Review this command.", command, call_id, item_id
     )

@@ -8,23 +8,26 @@ Turn natural language into shell commands.
 
 Type `?` followed by your request. `ask` understands your terminal context and turns your intent into shell commands you can review before running.
 
-`ask` uses OpenAI's Responses API and sends relevant scrollback from the current tmux pane as context. Commands are always proposals: choose `run`, `edit`, or `cancel`. Explanations are returned as plain text.
+`ask` uses the OpenAI-compatible Responses API and sends relevant scrollback from the current tmux pane as context. Commands are always proposals: choose `run`, `edit`, or `cancel`. Explanations are returned as plain text.
 
 ## Install
 
-Set your API key:
+Set an API key dedicated to `ask`:
 
 ```sh
-export OPENAI_API_KEY="..."
+export ASK_API_KEY="..."
 ```
 
-Optionally override the model settings:
+By default, `ask` calls OpenAI. Optionally select another OpenAI-compatible endpoint or model:
 
 ```sh
 export ASK_MODEL="gpt-5.6-luna"
 export ASK_REASONING_EFFORT="low"
-export ASK_VERBOSITY="low"
 export ASK_MAX_OUTPUT_TOKENS="512"
+
+# For an OpenAI-compatible endpoint such as vLLM:
+export ASK_BASE_URL="https://model.example.com/v1"
+export ASK_MODEL="my-model"
 ```
 
 Install the CLI and Oh My Zsh plugin:
@@ -50,3 +53,7 @@ tmux new -As ask
 ```
 
 ask uses tmux's pane API to read the current pane's scrollback.
+
+## Self-host Models on Hugging Face
+
+To privately host `google/gemma-4-E4B-it` on Hugging Face and connect it to `ask`, work through [the notebook](gemma-4-e4b-it-ask/deploy-model-on-hugging-face.ipynb). It starts and verifies a private vLLM Inference Endpoint, then pauses it after each test session.
