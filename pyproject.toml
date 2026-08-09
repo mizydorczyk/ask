@@ -20,7 +20,9 @@ module-root = "src"
 
 [dependency-groups]
 dev = [
+    "datasets",
     "huggingface-hub>=1.0",
     "jupyter>=1.1.1",
     "pandas>=3.0.5",
+    "transformers",
 ]
