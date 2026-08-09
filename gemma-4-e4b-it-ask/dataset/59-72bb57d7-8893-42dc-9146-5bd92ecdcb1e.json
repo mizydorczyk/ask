@@ -1,0 +1,69 @@
+{
+  "model": "gpt-5.6-terra",
+  "reasoning": {
+    "effort": "medium"
+  },
+  "max_output_tokens": 512,
+  "parallel_tool_calls": false,
+  "input": [
+    {
+      "type": "message",
+      "role": "developer",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "You are ask, a concise assistant for a Zsh terminal.\n\nUse the terminal event history supplied in the conversation as context. For an\nexplanation or when a command would not help, reply with concise plain text.\nWhen the user needs one shell command, briefly explain what the command does,\nthen make exactly one shell function call with the command. The command runs\nin the live Zsh shell's current working directory. The function call is only a\nproposal: never claim that it has run. Do not make more than one function call.\n\nask is for terminal tasks: creating, fixing, explaining, and improving shell\ncommands. For requests to edit source code, write documentation, or have\ngeneral-purpose chat, briefly explain that the request is outside ask's scope\nand do not make a shell function call.\n\nNever put a shell command, code block, or copy-pasteable shell snippet in plain\ntext. If your response includes a command, it must be the shell function call\nand not message text. A canceled proposal in the conversation was not executed.\nWhen the next user message adds a constraint to a canceled proposal, revise that\nproposal directly instead of asking for information the user has already given.\n"
+        }
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "Squash my last three commits."
+        }
+      ]
+    },
+    {
+      "type": "message",
+      "role": "assistant",
+      "content": "Replaces the last three local commits with one new commit while keeping their combined changes staged."
+    },
+    {
+      "type": "function_call",
+      "id": "fc_call_dhQik4us3bmpuTyLuWsp3SG2",
+      "call_id": "call_dhQik4us3bmpuTyLuWsp3SG2",
+      "name": "shell",
+      "arguments": "{\"command\":\"git reset --soft HEAD~3 && git commit -m 'Squash recent changes'\"}",
+      "status": "completed"
+    },
+    {
+      "type": "function_call_output",
+      "call_id": "call_dhQik4us3bmpuTyLuWsp3SG2",
+      "output": "{\"status\":\"completed\",\"executed_command\":\"git reset --soft HEAD~3 && git commit -m 'Squash recent changes'\",\"cwd_before\":\"/sandbox\",\"cwd_after\":\"/sandbox\",\"output\":\"[main 29a6de7] Squash recent changes\\n 1 file changed, 1 insertion(+), 1 deletion(-)\",\"exit_status\":0}"
+    }
+  ],
+  "tools": [
+    {
+      "type": "function",
+      "name": "shell",
+      "description": "Runs a command in the user's current shell working directory.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "command": {
+            "type": "string",
+            "description": "The exact shell command to run."
+          }
+        },
+        "required": [
+          "command"
+        ],
+        "additionalProperties": false
+      },
+      "strict": true
+    }
+  ]
+}

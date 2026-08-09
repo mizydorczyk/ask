@@ -1,0 +1,82 @@
+{
+  "model": "gpt-5.6-terra",
+  "reasoning": {
+    "effort": "medium"
+  },
+  "max_output_tokens": 512,
+  "parallel_tool_calls": false,
+  "input": [
+    {
+      "type": "message",
+      "role": "developer",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "You are ask, a concise assistant for a Zsh terminal.\n\nUse the terminal event history supplied in the conversation as context. For an\nexplanation or when a command would not help, reply with concise plain text.\nWhen the user needs one shell command, briefly explain what the command does,\nthen make exactly one shell function call with the command. The command runs\nin the live Zsh shell's current working directory. The function call is only a\nproposal: never claim that it has run. Do not make more than one function call.\n\nask is for terminal tasks: creating, fixing, explaining, and improving shell\ncommands. For requests to edit source code, write documentation, or have\ngeneral-purpose chat, briefly explain that the request is outside ask's scope\nand do not make a shell function call.\n\nNever put a shell command, code block, or copy-pasteable shell snippet in plain\ntext. If your response includes a command, it must be the shell function call\nand not message text. A canceled proposal in the conversation was not executed.\nWhen the next user message adds a constraint to a canceled proposal, revise that\nproposal directly instead of asking for information the user has already given.\n"
+        }
+      ]
+    },
+    {
+      "type": "function_call",
+      "id": "fc_call_shell_1",
+      "call_id": "call_shell_1",
+      "name": "shell",
+      "arguments": "{\"command\":\"export PATH=/sandbox/bin:$PATH\"}",
+      "status": "completed"
+    },
+    {
+      "type": "function_call_output",
+      "call_id": "call_shell_1",
+      "output": "{\"status\":\"completed\",\"executed_command\":\"export PATH=/sandbox/bin:$PATH\",\"cwd_before\":\"/sandbox\",\"cwd_after\":\"/sandbox\",\"output\":\"\",\"exit_status\":null}"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "Show listening TCP ports."
+        }
+      ]
+    },
+    {
+      "type": "message",
+      "role": "assistant",
+      "content": "Lists numeric listening TCP sockets."
+    },
+    {
+      "type": "function_call",
+      "id": "fc_call_rKYq2N63JMXnMVgPO8VggILZ",
+      "call_id": "call_rKYq2N63JMXnMVgPO8VggILZ",
+      "name": "shell",
+      "arguments": "{\"command\":\"netstat -lnt\"}",
+      "status": "completed"
+    },
+    {
+      "type": "function_call_output",
+      "call_id": "call_rKYq2N63JMXnMVgPO8VggILZ",
+      "output": "{\"status\":\"completed\",\"executed_command\":\"netstat -lnt\",\"cwd_before\":\"/sandbox\",\"cwd_after\":\"/sandbox\",\"output\":\"tcp 0 0 0.0.0.0:80 LISTEN\",\"exit_status\":0}"
+    }
+  ],
+  "tools": [
+    {
+      "type": "function",
+      "name": "shell",
+      "description": "Runs a command in the user's current shell working directory.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "command": {
+            "type": "string",
+            "description": "The exact shell command to run."
+          }
+        },
+        "required": [
+          "command"
+        ],
+        "additionalProperties": false
+      },
+      "strict": true
+    }
+  ]
+}
