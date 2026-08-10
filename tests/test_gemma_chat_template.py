@@ -32,7 +32,7 @@ class GemmaChatTemplateTests(unittest.TestCase):
             ]
         )
 
-        self.assertEqual(generated, ["I will list them."])
+        self.assertEqual(generated, ["I will list them.", "<turn|>\n"])
 
     def test_tool_call_and_handoff_are_marked_but_tool_response_is_not(self):
         _, generated = render(
@@ -112,6 +112,7 @@ class GemmaChatTemplateTests(unittest.TestCase):
         self.assertEqual(generated, [
             "<|channel>thought\nAdd the two numbers.\n<channel|>",
             "4",
+            "<turn|>\n",
         ])
 
     def test_multiple_tool_results_keep_each_payload_outside_assistant_loss(self):
@@ -178,7 +179,7 @@ class GemmaChatTemplateTests(unittest.TestCase):
             },
         ])
 
-        self.assertEqual(generated, ["It is a cat.<|image|>"])
+        self.assertEqual(generated, ["It is a cat.<|image|>", "<turn|>\n"])
 
     def test_string_tool_arguments_are_rejected(self):
         with self.assertRaisesRegex(TemplateError, "arguments must be a JSON object"):

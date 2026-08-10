@@ -375,7 +375,13 @@
             {%- endgeneration -%}
         {%- elif continues_into_next -%}
         {%- elif not (ns_tr_out.flag and not has_content and not next_nt.found) -%}
-            {{- '<turn|>\n' -}}
+            {%- if role == 'model' -%}
+                {%- generation -%}
+                {{- '<turn|>\n' -}}
+                {%- endgeneration -%}
+            {%- else -%}
+                {{- '<turn|>\n' -}}
+            {%- endif -%}
         {%- endif -%}
     {#- Track previous non-tool role for next iteration (avoids O(n) backward scan) -#}
     {%- set ns.prev_non_tool_role = message['role'] -%}
