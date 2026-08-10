@@ -1,6 +1,14 @@
-## Fine-tune a language model for `ask`
+## Fine-tune `gemma-4-E4B-it` for `ask`
 
-This document defines a supervised fine-tuning task for `ask`, the Zsh and Terminal.app assistant. The target model is [gemma-4-26b-a4b-it](https://ai.google.dev/gemma/docs/core/model_card_4): the Gemma 4 instruction-tuned mixture-of-experts model.
+This runbook fine-tunes [`google/gemma-4-E4B-it`](https://huggingface.co/google/gemma-4-E4B-it) for `ask`, the concise Zsh and tmux assistant.
+
+## Reproducible Colab workflow
+
+The source-controlled notebooks define a two-stage, training workflow. First run [`prepare-a-dataset.ipynb`](prepare-a-dataset.ipynb) from a checkout containing the example scenarios. It writes the 150-example `train` and 27-example `evaluate` JSONL files, then publishes the prepared splits and their split-declaring card to the private `$HF_NAMESPACE/gemma-4-e4b-it-ask-dataset` dataset repository.
+
+Then open [`fine-tune-on-colab.ipynb`](fine-tune-on-colab.ipynb) in Google Colab, select an A100 GPU runtime, and store `HF_TOKEN` as a Colab Secret. The token needs read access to Gemma plus private dataset/model read and write access. The notebook clones the source repository and loads the [training template](chat_template_training.jinja) from its file before it pulls the latest prepared dataset revision directly from the Hub, verifies its common tool declaration and the resulting assistant-only loss masks, and trains the LoRA adapter in the Colab kernel. The preparation notebook validates the complete `messages`/`tools` schema and template before publication.
+
+The notebook generates and parses a manually entered validation prompt, then publishes the summaries and private LoRA adapter.
 
 #### Conversational task: Which task should the model perform?
 
@@ -21,12 +29,11 @@ The model must also support follow-up turns. When the user asks to fix or explai
 
 #### Data source and preparation: From where will conversational examples come?
 
-Build examples from the documented `ask` use cases, and reviewed, synthetic terminal scenarios. Do not train on
-a user's raw terminal history unless it has explicit permission, has been scrubbed of credentials and personal data, and is appropriate to retain.
+Build examples from the documented `ask` use cases, and reviewed, synthetic terminal scenarios. Do not train on a user's raw terminal history unless it has explicit permission, has been scrubbed of credentials and personal data, and is appropriate to retain.
 
 #### Success criteria: How will quality be measured?
 
-Compare the tuned model with the untuned `gemma-4-26b-a4b-it` baseline on the held-out set and through human review. A response succeeds when it:
+Compare the tuned model with the untuned `google/gemma-4-E4B-it` baseline on the out-of-sample set and through human review. A response succeeds when it:
 
 - selects text-only output versus a command proposal correctly;
 - emits exactly one valid `shell` call when a command is needed;

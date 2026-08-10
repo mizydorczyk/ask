@@ -57,3 +57,5 @@ ask uses tmux's pane API to read the current pane's scrollback.
 ## Self-host Models on Hugging Face
 
 To privately host `google/gemma-4-E4B-it` on Hugging Face and connect it to `ask`, work through [the notebook](gemma-4-e4b-it-ask/deploy-model-on-hugging-face.ipynb). It starts and verifies a private vLLM Inference Endpoint, then pauses it after each test session.
+
+To fine-tune the model, follow [the Colab notebook](gemma-4-e4b-it-ask/fine-tune-a-language-model.md). It prepares the dataset and trains the LoRA adapter in [fine-tune-on-colab.ipynb](gemma-4-e4b-it-ask/fine-tune-on-colab.ipynb).
