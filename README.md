@@ -66,4 +66,4 @@ The public `ask` Gemma artifacts are available on Hugging Face:
 
 To host the merged model on Hugging Face and connect it to `ask`, work through [the deployment notebook](gemma-4-e4b-it-ask/deploy-model-on-hugging-face.ipynb). It starts and verifies a private vLLM Inference Endpoint, then pauses it after each test session.
 
-To fine-tune the model, follow [the Colab notebook](gemma-4-e4b-it-ask/fine-tune-a-language-model.md). It prepares the dataset and trains the LoRA adapter in [fine-tune-on-colab.ipynb](gemma-4-e4b-it-ask/fine-tune-on-colab.ipynb).
+To fine-tune the model, follow [the guide](gemma-4-e4b-it-ask/fine-tune-a-language-model.md). It prepares the dataset and trains the LoRA adapter in [fine-tune-on-colab.ipynb](gemma-4-e4b-it-ask/fine-tune-on-colab.ipynb).
